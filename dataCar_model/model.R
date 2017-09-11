@@ -5,6 +5,8 @@
 
 library(dplyr)
 library(ROCR)
+library(rpart)
+library(class)
 
 car = read.csv('dataCar_clean.csv',header=TRUE)
 
@@ -38,13 +40,21 @@ calc_auc = function(pred_col, out_col){
   ret = attributes(performance(eval,'auc'))$y.values[[1]]
 }
 
+
+## Creates NAs (NEED TO FIX)
 exposure_cut = as.numeric(quantile(trainCar$exposure, probs=seq(0, 1, 0.1),na.rm=T))
 trainCar = trainCar %>% mutate(exposure_cut = cut(trainCar$exposure,exposure_cut))
 testCar = testCar %>% mutate(exposure_cut = cut(testCar$exposure,exposure_cut))
 
-cat_vars = c('gender', 'veh_body', 'veh_age', 'area', 'agecat', 'exposure_cut')
+veh_value_cut = as.numeric(quantile(trainCar$veh_value, probs=seq(0, 1, 0.1),na.rm=T))
+trainCar = trainCar %>% mutate(veh_value_cut = cut(trainCar$veh_value,veh_value_cut))
+testCar = testCar %>% mutate(veh_value_cut = cut(testCar$veh_value,veh_value_cut))
 
-for (var in cat_vars) { 
+head(trainCar$veh_value_cut)
+
+catVars = c('gender', 'veh_body', 'veh_age', 'area', 'agecat', 'exposure_cut', 'veh_value_cut')
+
+for (var in catVars) { 
   varTable = single_var2(trainCar[[var]], trainCar$clm)
   trainPred = make_pred(varTable, trainCar[[var]])
   trainAuc = calc_auc(trainPred,trainCar$'clm')
@@ -57,16 +67,68 @@ ggplot(data=trainCar) + geom_density(aes(x=exposure,color=as.factor(clm)))
 
 
 
+## simple decision tree
+
+
+tmodel <- rpart(clm != 0 ~ gender + veh_body + veh_age + area + agecat + exposure_cut + veh_value_cut ,data=trainCar)
+print(tmodel)
+print(calc_auc(predict(tmodel,newdata=trainCar),trainCar$clm))
+print(calc_auc(predict(tmodel,newdata=testCar),testCar$clm))
+
+par(cex=0.7)
+plot(tmodel)
+text(tmodel)
+
+## simple knn model
+
+knnVars = c('veh_age', 'agecat', 'veh_value', 'exposure', 'gender', 'veh_body', 'area')
+knnTrain = trainCar[,knnVars]
+knnTrain$gender = as.numeric(knnTrain$gender)
+knnTrain$veh_body = as.numeric(knnTrain$veh_body)
+knnTrain$area = as.numeric(knnTrain$area)
+knnCl <- trainCar[,'clm'] == 1
+nk = 200
+
+knnPred <- function(df) {
+  knnDecision <- knn(knnTrain,df,knnCl,k=200,prob=T)
+  ifelse(knnDecision==TRUE,
+         attributes(knnDecision)$prob,
+         1-(attributes(knnDecision)$prob))
+}
+
+knnPreds = knnPred(knnTrain)
+
+print(calc_auc(knnPred(knnTrain),trainCar[,'clm']))
+
+
+resultframe <- data.frame(clm=trainCar$clm, pred=knnPred(knnTrain))
+plot(resultframe$pred)
+## confusion matrix
+conMat = table(truth=resultframe$clm,prediction=resultframe$pred>=0.15)
+conMat
+
+## accuracy
+sum(diag(conMat))/sum(conMat)
+(conMat[1,1]+conMat[2,2])/sum(conMat)
+
+##precision 
+conMat[2,2]/(conMat[2,2]+conMat[1,2])
+
+##recall
+conMat[2,2]/ (conMat[2,2]+conMat[2,1])
+
+
 ## simple glm model 
 glmModel <- glm(clm ~ veh_value + exposure + veh_body + veh_age + gender + area + agecat,family=binomial(link='logit'),trainCar)
 
-trainCar$pred <- predict(glmModel,newdata=trainCar,
+glmtrainPred <- predict(glmModel,newdata=trainCar,
                           type='response')
-testCar$pred <- predict(glmModel,newdata=testCar,
+glmtestPred <- predict(glmModel,newdata=testCar,
                          type='response') 
+plot(glmtrainPred)
 
 ## confusion matrix
-conMat = table(truth=testCar$clm,prediction=testCar$pred>0.15)
+conMat = table(truth=trainCar$clm,prediction=glmtrainPred>0.15)
 conMat
 
 ## accuracy
