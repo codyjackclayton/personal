@@ -24,12 +24,9 @@ trainCar <- car %>% filter(random > 0.1)
 
 ## build model formula
 y <- "clm"
-x <- c( "veh_value",
+x <- c( "veh_value_log10",
   "exposure",
   "veh_body",
-  "veh_age",
-  "gender",
-  "area",
   "agecat")
 fmla <- paste(y, paste(x, collapse="+"), sep="~")
 print(fmla)
@@ -120,3 +117,56 @@ coefficients(model)
 
 ## model 
 summary(model)
+
+## computing deviance
+loglikelihood <- function(y, py) {
+  sum(y * log(py) + (1-y)*log(1 - py))
+}
+
+## null deviance 
+trainNullDev = model$null.deviance
+
+## model deviance 
+trainResidualDev = model$deviance
+
+##clm percent in testCar
+clmTest = as.numeric(testCar$clm)
+clmRateTest <- mean(as.numeric(testCar$clm))
+
+##testCar null deviance
+testNullDev <- -2*loglikelihood(clmTest, clmRateTest)
+
+##testCar residual deviance
+testResidualDev <- -2*loglikelihood(clmTest, testCar$pred)
+
+clmRateTest
+testNullDev
+testResidualDev
+
+## chi-squared test 
+
+degFreedomNull <- dim(trainCar)[[1]] - 1
+degFreedomModel <- dim(trainCar)[[1]] -length(model$coefficients)
+
+degFreedomNull
+degFreedomModel
+
+devDiff <- trainNullDev - trainResidualDev
+degFreeDiff <- degFreedomNull - degFreedomModel
+pVal <- pchisq(devDiff, degFreeDiff, lower.tail=F)
+
+pVal
+
+## Calculating the pseudo R-squared
+
+trainPr2 <- 1-(trainResidualDev/trainNullDev)
+trainPr2
+
+testPr2 <- 1-(testResidualDev/testNullDev)
+testPr2
+
+## model predicts about 4% of the overall varaince 
+
+
+aic <- 2*(length(model$coefficients) - loglikelihood(as.numeric(trainCar$clm), trainCarPrediction))
+

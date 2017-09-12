@@ -67,61 +67,60 @@ max(dataCar2$veh_value) * 10000
 ## max vehicle value is $345,600 which is realistic, no need to remove data points but may want to convert to log since range is so large
 ggplot(dataCar2) + geom_density(aes(x=log10(veh_value*10000)))
 
-## in the log space veh_value looks to have a more 'normal' looking distribution
+## in the log space veh_value looks to have a more 'normal' looking distribution, may work better
 
-dataCar3 = dataCar2
-
-dataCar3$veh_value= log10(dataCar3$veh_value)
+dataCar2$veh_value_log10 = log10(dataCar2$veh_value)
+dataCar2$veh_value_log2 = log2(dataCar2$veh_value)
 
 
 ## observe relationship between variables and claims
 ## agecat
-ggplot(dataCar3) + geom_bar(aes(x=agecat, fill=clm), position="fill")
+ggplot(dataCar2) + geom_bar(aes(x=agecat, fill=clm), position="fill")
 ## obvious correlation between age and claims
 ## veh_body
-ggplot(dataCar3) + geom_bar(aes(x=veh_body, fill=clm), position="fill") + 
+ggplot(dataCar2) + geom_bar(aes(x=veh_body, fill=clm), position="fill") + 
   coord_flip() + 
   theme(axis.text.y=element_text(size=rel(0.8)))
 ## veh_age
-ggplot(dataCar3) + geom_bar(aes(x=veh_age, fill=clm), position="fill")
+ggplot(dataCar2) + geom_bar(aes(x=veh_age, fill=clm), position="fill")
 ## gender
-ggplot(dataCar3) + geom_bar(aes(x=gender, fill=clm), position="fill")
+ggplot(dataCar2) + geom_bar(aes(x=gender, fill=clm), position="fill")
 ## area
-ggplot(dataCar3) + geom_bar(aes(x=area, fill=clm), position="fill")
+ggplot(dataCar2) + geom_bar(aes(x=area, fill=clm), position="fill")
 
 ## compare 2 variables 
 
 ## agecat by veh_age
-ggplot(dataCar3) +
+ggplot(dataCar2) +
   geom_bar(aes(x=agecat), position="dodge") +
   facet_wrap(~veh_age, scales="free_y")
 
 ## agecat by gender
-ggplot(dataCar3) +
+ggplot(dataCar2) +
   geom_bar(aes(x=agecat), position="dodge") +
   facet_wrap(~gender, scales="free_y")
 
 ## veh_age by gender
-ggplot(dataCar3) +
+ggplot(dataCar2) +
   geom_bar(aes(x=veh_age), position="dodge") +
   facet_wrap(~gender, scales="free_y")
 ## males more likely to have older cars
 
 
 ## check percent that default in data set 
-sum(dataCar3$clm == 1) / nrow(dataCar3)
+sum(dataCar2$clm == 1) / nrow(dataCar2)
 
 ## 6.810908% -- model must be better than this (always predicting no claim have 93.18909% accuracy)
 
 
 ## exposure density graph
-ggplot(data=dataCar3) + geom_density(aes(x=exposure,color=as.factor(clm)))
+ggplot(data=dataCar2) + geom_density(aes(x=exposure,color=as.factor(clm)))
 
 ## exposure looks to be good predictor 
 
 
 ## export cleaned data
-write.csv(dataCar3, file = "dataCar_clean.csv")
+write.csv(dataCar2, file = "dataCar_clean.csv")
 
 
 
