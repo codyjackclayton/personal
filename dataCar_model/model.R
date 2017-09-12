@@ -1,6 +1,6 @@
 ## dataCar model creation and evaluation 
 ## Cody Clayton
-## Sept 9, 2017
+## Sept 10, 2017
 
 
 library(dplyr)
