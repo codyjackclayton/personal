@@ -1,15 +1,22 @@
 ---
-title: "Logistic Regression Model to Predict Insurance Claims"
+title: "Logistic Regression to Predict Insurance Claims"
 author: "Cody Clayton"
 date: "Last Updated: `r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
 ---
 
 # Objective
-The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of service based on the information available at the time of purchase. 
+The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of the policy based on the information available at the time of purchase. 
+
 
 
 
 ```{r, , echo=FALSE, message=FALSE, warning=FALSE}
 
+x = 100
 ```
+
+
+# Assumptions required for results to be predictive in 2006 
+1. The exposure must be available before the insurance policy is taken out and can therefore be used as a predictor of a claim at the time the insurance is purchased.  
+2. The dataCar dataset must only indicate a vehicle has submitted a claim if the accident occurs in the first year. The dataset includes data from 2004 & 2005, if a policy was taken out in 2004 and was renewed in 2005 the 2005 renewal and any claim that happened after the renewal date should not be included. 
