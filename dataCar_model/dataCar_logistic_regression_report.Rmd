@@ -5,16 +5,84 @@ date: "Last Updated: `r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
 ---
 
+```{r, , echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(ROCR)
+library(grid)
+
+dataCar = read.csv('dataCar.csv',header=TRUE)
+dataCar1 = dataCar %>% select(X, veh_value, exposure, clm, veh_body, veh_age, gender, area, agecat)
+dataCar1$clm = as.factor(dataCar1$clm)
+dataCar2 = dataCar1[dataCar1$veh_value != 0,]
+```
+
 # Objective
-The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of the policy based on the information available at the time of purchase. 
+The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of a policy based on the information available at the time of purchase. This information can then be used as a tool when determining the appropriate premium to charge the buyer in order to lower cost for the company. Insurance policy data from 2004 & 2005 accessibile via the [dataCar](https://www.rdocumentation.org/packages/insuranceData/versions/1.0/topics/dataCar) dataset is available for this project.
 
+# Data Exploration and Insights
 
+The goal is to create an effective model to predict the probability a vehicle will submit at least one claim in the first year of the policy. To achieve this we must first ensure that the policy characteristics (referred to as features) being utilized are available at that time of purchase, are accurate and help predict the likelihood of a claim submission. As a result: 
 
+1. Only the data available before the policy is taken out can be utilized. Therefore, the number of claims submitted and the amount of the claim will not be considered.
+
+2. Data that has no predictive power can be removed. Since the X_OBSTAT_ feature has the same value for all policies, it can be ignored.
+
+3. Data that is inaccurate should be transformed or removed. 53 policies have a vehicle value of $0.00 which is inaccurate and can have a negative impact on the predictions. If the other properties for these polices appear to be valid, the vehicle value can be adjusted to the mean for these data points. However, since the exposure for these 53 policies also appear to be inflated compared to the population, these polices may be invalid. For this reason and because they only represent a very small portion of the population, they will be removed. 
 
 ```{r, , echo=FALSE, message=FALSE, warning=FALSE}
+no_veh_value = dataCar[dataCar$veh_value == 0,]
+no_veh_value_exp = sum(no_veh_value$exposure > .99) / nrow(no_veh_value)
+pop_exp = sum(dataCar$exposure > .99) / nrow(dataCar)
 
-x = 100
+cat('Percent of $0.00 vehicle value polices with exposure > 0.99: ', sprintf('%.2f', no_veh_value_exp * 100), '%', sep='')
+cat('Percent of population with exposure > 0.99: ', sprintf('%.2f', pop_exp * 100), '%', sep='')
 ```
+
+It is also important to examine the features to determine if there are any obvious relationship to the outcome trying to be predicted. The best way to accomplish this is to look at the proportion of policies that submit claims for each feature. 
+
+1. There is a clear relationship between the age of the driver and submission of a claim, as age increases the proportion of vehicles that submit claims decrease 
+
+```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(dataCar2, aes(x=agecat, fill=clm)) + geom_bar(position="fill") + labs(title='Proportion of Policies That Submit Claims By Age',x='Age', y='Proportion (%)', fill='Claim Submitted') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+2. Higher exposure also could be a good predictor of a claim as the percentage of policies with low exposure that submit a claim is much lower than for the policies with high exposure. 
+
+```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data=dataCar2) + 
+  geom_density(aes(x=exposure,color=clm, y=..scaled..)) +
+  labs(title='Proportion of Policies That Submit Claims By Exposure',x='Exposure', y='Density', color='Claim Submitted') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+3. There also could be a relationship between some vehicle body types and the submission of a claim 
+
+
+```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(dataCar2) + geom_bar(aes(x=veh_body, fill=clm), position="fill") + 
+  coord_flip() + 
+  theme(axis.text.y=element_text(size=rel(0.8))) + 
+  labs(title='Proportion of Policies That Submit Claims By Vehicle Body',x='Proportion (%)', y='Vehicle Body', fill='Claim Submitted') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+4. There is no clear relationship between area, vehicle value, vehicle age or gender and the submission of a claim however these features will still be considered going forward.
+
+# Model Selection & Description 
+
+Logistic regression was selected for this project because it is the most widely used and approved method for predicting probabilities or rates. 
+
+Logistic regression can directly predict the probability $y$ that an instance belongs to a specific category (in this case, the probability that a vehicle will submit an insurance claim in the first year). When $x[i,]$ is a row of inputs (in this case, the policy holders age, gender, area and exposure as well as the vehicles body type and value), logistic regression finds a fit function $f(x)$ such that: 
+
+$P[y[i]$ in category$] ~ f(x[i,]) = s(a+b[1] x[i,1] + ... b[n] x[i,n])$
+
+$s(z)$ is the so-called sigmoid function, defined as $s(z) = 1/(1+exp(z))$. 
+
+If the $y[i]$ are the probabilities that the $x[i,]$ belong to the category of interest (in this case, that a policy with certain characteristics will submit a claim), then the task of fitting is to find the $b[1], ..., b[n]$ such that $f(x[i,])$ is the best possible estimate of $y[i]$.
+
+The coefficients of a logistic regression model can also be treated as advice when selecting which features to include in the model and also in determining which features have the largest impact on the output. 
 
 
 # Assumptions required for results to be predictive in 2006 
