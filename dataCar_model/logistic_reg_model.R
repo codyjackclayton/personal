@@ -44,7 +44,14 @@ plot(trainCar$pred)
 ggplot(trainCar, aes(x=pred, color=clm, linetype=clm)) +
   geom_density()
 
+ggplot(testCar, aes(x=pred, y=..scaled..,color=clm, linetype=clm)) +
+  geom_density() + 
+  labs(title='Probability Density by Claim Submission',x='Probability', y='Density', color='Claim Submitted',  linetype='Claim Submitted') +
+  theme(plot.title = element_text(hjust = 0.5))
+
 ## selecting a probability threshold 
+
+## trainCar
 
 ## ROCR prediction
 trainCarPrediction <- prediction(trainCar$pred, trainCar$clm)
@@ -81,13 +88,16 @@ clmRate <- mean(as.numeric(trainCar$clm))
 ## precision over clm percent vs threshold  
 p1 <- ggplot(rocFrame, aes(x=threshold)) +
   geom_line(aes(y=precision/clmRate)) +
-  ##geom_line(aes(y=precision)) +
-  coord_cartesian(xlim = c(0,0.25), ylim=c(0,6) )
+  coord_cartesian(xlim = c(0,0.25), ylim=c(0,6) ) +
+  labs(title='Claim Density By Exposure',x='Probability Threshold', y='Enrichment Rate') +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ## recall vs threshold 
 p2 <- ggplot(rocFrame, aes(x=threshold)) +
   geom_line(aes(y=recall)) +
-  coord_cartesian(xlim = c(0,0.25) )
+  coord_cartesian(xlim = c(0,0.25) ) +
+  labs(x='Probability Threshold', y='Recall') +
+  theme(plot.title = element_text(hjust = 0.5))
 
 nplot(list(p1, p2))
 
