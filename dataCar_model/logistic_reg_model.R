@@ -19,8 +19,8 @@ car$clm <- car$clm == 1
 
 car$random <- runif(dim(car)[1])
 
-testCar <- car %>% filter(random <= 0.1)
-trainCar <- car %>% filter(random > 0.1)
+testCar <- car %>% filter(random <= 0.2)
+trainCar <- car %>% filter(random > 0.2)
 
 ## build model formula
 y <- "clm"

@@ -65,6 +65,9 @@ ggplot(dataCar2) + geom_density(aes(x=veh_value))
 max(dataCar2$veh_value) * 10000
 
 ## max vehicle value is $345,600 which is realistic, no need to remove data points but may want to convert to log since range is so large
+
+ggplot(dataCar2) + geom_density(aes(x=veh_value*10000))
+
 ggplot(dataCar2) + geom_density(aes(x=log10(veh_value*10000)))
 
 ## in the log space veh_value looks to have a more 'normal' looking distribution, may work better
@@ -75,12 +78,15 @@ dataCar2$veh_value_log2 = log2(dataCar2$veh_value)
 
 ## observe relationship between variables and claims
 ## agecat
-ggplot(dataCar2) + geom_bar(aes(x=agecat, fill=clm), position="fill")
+ggplot(dataCar2, aes(x=agecat, fill=clm)) + 
+  geom_bar(position="fill") + 
+  labs(title='Proportion of Policies That Submit Claims By Age',x='Age', y='Proportion', fill='Claim Submitted')
 ## obvious correlation between age and claims
 ## veh_body
 ggplot(dataCar2) + geom_bar(aes(x=veh_body, fill=clm), position="fill") + 
   coord_flip() + 
-  theme(axis.text.y=element_text(size=rel(0.8)))
+  theme(axis.text.y=element_text(size=rel(0.8))) + 
+  labs(title='Proportion of Policies That Submit Claims By Vehicle Body',x='Proportion', y='Vehicle Body', fill='Claim Submitted')
 ## veh_age
 ggplot(dataCar2) + geom_bar(aes(x=veh_age, fill=clm), position="fill")
 ## gender
@@ -114,7 +120,9 @@ sum(dataCar2$clm == 1) / nrow(dataCar2)
 
 
 ## exposure density graph
-ggplot(data=dataCar2) + geom_density(aes(x=exposure,color=as.factor(clm)))
+ggplot(data=dataCar2) + 
+  geom_density(aes(x=exposure,color=clm)) +
+  labs(title='Claim Density By Exposure',x='Exposure', y='Density', color='Claim Submitted')
 
 ## exposure looks to be good predictor 
 
