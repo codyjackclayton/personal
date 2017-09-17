@@ -1,0 +1,98 @@
+---
+title: "Logistic Regression to Predict Insurance Claims"
+author: "Cody Clayton"
+date: "Date: `r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+css: style.css
+---
+
+```{r, , echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(ROCR)
+library(grid)
+library(scales)
+library(png)
+
+
+## laod data
+dataCar = read.csv('dataCar.csv',header=TRUE)
+dataCar1 = dataCar %>% select(X, veh_value, exposure, clm, veh_body, veh_age, gender, area, agecat)
+dataCar1$clm = as.factor(dataCar1$clm)
+dataCar2 = dataCar1[dataCar1$veh_value != 0,]
+
+## print multiple plots 
+multi_plot <- function(plist) {
+  n <- length(plist)
+  grid.newpage()
+  pushViewport(viewport(layout=grid.layout(n,1)))
+  vplayout=function(x,y) {viewport(layout.pos.row=x, layout.pos.col=y)} 
+  for(i in 1:n) {
+    print(plist[[i]], vp=vplayout(i,1))
+  }
+}
+```
+
+# Objective
+The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of a policy based on the information available at the time of purchase. This information can then be used as a tool when determining the appropriate premium to charge the buyer in order to lower cost for the company.
+
+# Data Exploration and Insights
+
+To create an effective model we must first ensure that the policy characteristics being utilized are accurate, available at that time of purchase and predictive of a claim submission. To ensure this: 
+
+1. Only the data available before the policy is taken out can be utilized. Therefore, the information regarding the **number of claims submitted** and the **amount of the claims** will not be considered.
+
+2. Data that has no predictive power can be removed. Since the **X_OBSTAT_** feature has the same value for all policies, it can be ignored.
+
+3. Data that is inaccurate should be transformed or removed. 53 policies have a vehicle value of $0.00 which is incorrect. Furthermore, the exposure value for these 53 policies also appears to be inflated compared to the population. For these reasons and because this only represent a very small portion of the population, they will be removed. 
+
+```{r, , echo=FALSE, message=FALSE, warning=FALSE}
+no_veh_value = dataCar[dataCar$veh_value == 0,]
+no_veh_value_exp = sum(no_veh_value$exposure > .99) / nrow(no_veh_value)
+pop_exp = sum(dataCar$exposure > .99) / nrow(dataCar)
+
+cat('Percent of $0.00 vehicle value polices with exposure > 0.99: ', sprintf('%.2f', no_veh_value_exp * 100), '%', sep='')
+cat('Percent of population with exposure > 0.99: ', sprintf('%.2f', pop_exp * 100), '%', sep='')
+```
+
+It is also important to examine the features to determine if there are any obvious correlations to a claim submission. If we break down the proportion of policies that sumbit a claim based on the claim characteristics we are able to see a few obvious patterns.
+
+1. There is a clear relationship between the age of the driver and the submission of a claim. As age increases the proportion of vehicles that submit claims decreases. 
+
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+## claim submission percentage by age category
+age_group = dataCar2 %>% group_by(agecat)
+age_table = age_group %>% summarize(total = n(), clm_count = sum(clm==1), clm_percent = sum(clm==1) / n())
+
+ggplot(age_table, aes(x=agecat, y=clm_percent, fill='indianred')) + 
+  geom_bar(stat="identity") + 
+  labs(title='Percentage of Policies that Submit a Claim by Age Category',x='Age Category (1 = youngest)', y='Percentage of Claims') +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_y_continuous(labels = percent) + 
+  guides(fill=FALSE) + 
+  geom_text(aes( label = paste0(formatC(as.numeric(clm_percent)*100, format="f", digits=2),'%'), y= clm_percent ), vjust = +2)
+```
+
+2. Higher exposure also could be a good predictor as policies with high exposure appear to be more likely to submit a claim.
+
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+expDf = dataCar2
+expDf$exp_bins = cut(dataCar2$exposure, breaks=c(seq(0,1,0.05)))
+
+exp_group = expDf %>% group_by(exp_bins) 
+exp_table = exp_group %>% summarise(total = n(), clm_count = sum(clm==1), clm_percent = sum(clm==1) / n())
+exp_table = exp_table %>% mutate(format_bins = seq(0,0.95,0.05))
+
+ggplot(exp_table, aes(x=format_bins, y=clm_percent, fill='indianred')) + 
+  geom_bar(stat="identity") + 
+  labs(title='Percentage of Policies that Submit a Claim by Exposure',x='Exposure', y='Percentage of Claims') +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_y_continuous(labels = percent) + 
+  scale_x_continuous(limits = c(0.05, 0.95)) + 
+  guides(fill=FALSE) 
+```
+
+```{r fig.width=7, fig.height=2.75, fig.align = 'center', echo=FALSE}
+img <- readPNG("feature_selection.png")
+ grid.raster(img)
+```

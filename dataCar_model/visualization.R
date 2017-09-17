@@ -72,6 +72,7 @@ veh_table = veh_group %>% summarise(total = n(), clm_count = sum(clm==1), clm_pe
 
 veh_table$veh_body <- factor(veh_table$veh_body, levels = veh_table$veh_body[order(veh_table$clm_percent)])
 
+## coord_flip
 ggplot(veh_table, aes(x=veh_body, y=clm_percent, fill='indianred')) + 
   geom_bar(stat="identity") + 
   coord_flip() + 
@@ -80,6 +81,17 @@ ggplot(veh_table, aes(x=veh_body, y=clm_percent, fill='indianred')) +
   theme(plot.title = element_text(hjust = 0.5)) + 
   scale_y_continuous(labels = percent) + 
   guides(fill=FALSE) 
+
+
+## no coord_flip
+ggplot(veh_table, aes(x=veh_body, y=clm_percent, fill='indianred')) + 
+  geom_bar(stat="identity") + 
+  theme(axis.text.x=element_text(size=rel(0.92), hjust=1, angle=45)) + 
+  labs(title='Percentage of Policies that Submit a Claim by Vehicle Body',y='Percentage of Claims', x='Vehicle Body') +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_y_continuous(labels = percent) + 
+  guides(fill=FALSE) 
+
 
 ## vehicle value
 

@@ -178,5 +178,5 @@ testPr2
 ## model predicts about 4% of the overall varaince 
 
 
-aic <- 2*(length(model$coefficients) - loglikelihood(as.numeric(trainCar$clm), trainCarPrediction))
+aic <- 2*(length(model$coefficients) - loglikelihood(as.numeric(trainCar$clm), trainCar$pred))
 

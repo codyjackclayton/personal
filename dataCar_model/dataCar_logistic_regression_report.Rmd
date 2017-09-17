@@ -3,6 +3,7 @@ title: "Logistic Regression to Predict Insurance Claims"
 author: "Cody Clayton"
 date: "Date: `r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
+css: style.css
 ---
 
 ```{r, , echo=FALSE, message=FALSE, warning=FALSE}
@@ -11,6 +12,7 @@ library(ggplot2)
 library(ROCR)
 library(grid)
 library(scales)
+library(png)
 
 
 ## laod data
@@ -30,34 +32,30 @@ multi_plot <- function(plist) {
   }
 }
 ```
-
 # Objective
-The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within the first year of a policy based on the information available at the time of purchase. This information can then be used as a tool when determining the appropriate premium to charge the buyer in order to lower cost for the company.
+The objective of this project is to identify auto insurance buyers who have a higher risk of submitting a claim within a policy's first year based on the information available at the time of purchase. This information can then be used as a tool when determining the appropriate premium to charge the buyer in order to lower the company's expenses.
 
 # Data Exploration and Insights
 
-To create an effective model we must first ensure that the policy characteristics being utilized are accurate, available at that time of purchase and predictive of a claim submission. To ensure this: 
+To create an effective model, we must first ensure that the policy characteristics being used are accurate, available at the time of purchase and predictive of a claim submission. To ensure this: 
 
-1. Only the data available before the policy is taken out can be utilized. Therefore, the information regarding the **number of claims submitted** and the **amount of the claims** will not be considered.
+1. Only the data available before the policy is taken out can be used. Therefore, the information regarding the **number of claims submitted** and the **amount of the claims** will not be considered.
 
 2. Data that has no predictive power can be removed. Since the **X_OBSTAT_** feature has the same value for all policies, it can be ignored.
 
-3. Data that is inaccurate should be transformed or removed. 53 policies have a vehicle value of $0.00 which is incorrect. Furthermore, the exposure value for these 53 policies also appears to be inflated compared to the population. For these reasons and because this only represent a very small portion of the population, they will be removed. 
-
 ```{r, , echo=FALSE, message=FALSE, warning=FALSE}
 no_veh_value = dataCar[dataCar$veh_value == 0,]
-no_veh_value_exp = sum(no_veh_value$exposure > .99) / nrow(no_veh_value)
-pop_exp = sum(dataCar$exposure > .99) / nrow(dataCar)
-
-cat('Percent of $0.00 vehicle value polices with exposure > 0.99: ', sprintf('%.2f', no_veh_value_exp * 100), '%', sep='')
-cat('Percent of population with exposure > 0.99: ', sprintf('%.2f', pop_exp * 100), '%', sep='')
+no_veh_value_exp = (sum(no_veh_value$exposure > .99) / nrow(no_veh_value)) * 100
+pop_exp = (sum(dataCar$exposure > .99) / nrow(dataCar)) * 100
 ```
+3. Data that is inaccurate should be transformed or removed. 53 policies have a **vehicle value** of $0.00 which is incorrect. Furthermore, the exposure value for these 53 policies also appears to be inflated as 
+`r paste0(formatC(as.numeric(no_veh_value_exp), format="f", digits=2),'%')` have an **exposure** above 0.99. In comparison to the population, only  `r paste0(formatC(as.numeric(pop_exp), format="f", digits=2),'%')` have an **exposure** above 0.99. For these reasons and because this only represents a very small portion of the population, they will be removed. 
 
-It is also important to examine the features to determine if there are any obvious correlations to a claim submission. If we break down the proportion of policies that sumbit a claim based on the claim characteristics we are able to see a few obvious patterns.
+It is also important to examine the features to determine if there are any obvious correlations to a claim submission. If we break down the proportion of policies that sumbit a claim based on the claim characteristics, we are able to see a few obvious patterns.
 
-1. There is a clear relationship between the age of the driver and the submission of a claim. As age increases the proportion of vehicles that submit claims decreases. 
+1. There is a clear relationship between the driver's **age** and the submission of a claim. As driver age increases, the percentage of vehicles that submit a claim decreases. 
 
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 ## claim submission percentage by age category
 age_group = dataCar2 %>% group_by(agecat)
 age_table = age_group %>% summarize(total = n(), clm_count = sum(clm==1), clm_percent = sum(clm==1) / n())
@@ -70,10 +68,8 @@ ggplot(age_table, aes(x=agecat, y=clm_percent, fill='indianred')) +
   guides(fill=FALSE) + 
   geom_text(aes( label = paste0(formatC(as.numeric(clm_percent)*100, format="f", digits=2),'%'), y= clm_percent ), vjust = +2)
 ```
-
-2. Higher exposure also could be a good predictor as policies with high exposure appear to be more likely to submit a claim.
-
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+2. Higher **exposure** could also be a good predictor, as policies with high exposure appear to be more likely to submit a claim.
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 expDf = dataCar2
 expDf$exp_bins = cut(dataCar2$exposure, breaks=c(seq(0,1,0.05)))
 
@@ -89,10 +85,8 @@ ggplot(exp_table, aes(x=format_bins, y=clm_percent, fill='indianred')) +
   scale_x_continuous(limits = c(0.05, 0.95)) + 
   guides(fill=FALSE) 
 ```
-
-3. There also could be a relationship between some vehicle body types and the submission of a claim.
-
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+3. There could also be a relationship between some **vehicle body types** and the submission of a claim.
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 veh_group = expDf %>% group_by(veh_body) 
 veh_table = veh_group %>% summarise(total = n(), clm_count = sum(clm==1), clm_percent = sum(clm==1) / n())
 
@@ -100,17 +94,14 @@ veh_table$veh_body <- factor(veh_table$veh_body, levels = veh_table$veh_body[ord
 
 ggplot(veh_table, aes(x=veh_body, y=clm_percent, fill='indianred')) + 
   geom_bar(stat="identity") + 
-  coord_flip() + 
-  theme(axis.text.y=element_text(size=rel(0.8))) + 
+  theme(axis.text.x=element_text(size=rel(0.92), hjust=1, angle=45)) + 
   labs(title='Percentage of Policies that Submit a Claim by Vehicle Body',y='Percentage of Claims', x='Vehicle Body') +
   theme(plot.title = element_text(hjust = 0.5)) + 
   scale_y_continuous(labels = percent) + 
   guides(fill=FALSE) 
 ```
-
-4. The vehicle values cover a large range, from `r paste0("$", formatC(as.numeric(min(dataCar2$veh_value) * 10000), format="f", digits=2, big.mark=","))` to `r paste0("$", formatC(as.numeric(max(dataCar2$veh_value) * 10000), format="f", digits=2, big.mark=","))` and have a very skewed distribution. As a result, a log transformation will be considered on this data when building the model. This will result in a more $normal$ distribution and may improve the model's quality if differences in magnitude are more informative than differences in the value itself. 
-
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+4. The **vehicle values** cover a large range, from `r paste0("$", formatC(as.numeric(min(dataCar2$veh_value) * 10000), format="f", digits=0, big.mark=","))` to `r paste0("$", formatC(as.numeric(max(dataCar2$veh_value) * 10000), format="f", digits=0, big.mark=","))`, and have a very skewed distribution. As a result, a log transformation will be considered on this data when building the model. This will result in a more $normal$ distribution and may improve the model's quality if differences in magnitude are more informative than differences in the value itself. 
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 p1 = ggplot(dataCar2) + geom_density(aes(x=veh_value*10000, y=..scaled..)) + 
   labs(title='Vehicle Value Distribution',x='Vehicle Value', y='Density') +
   theme(plot.title = element_text(hjust = 0.5)) + 
@@ -122,17 +113,15 @@ p2 = ggplot(dataCar2) + geom_density(aes(x=veh_value*10000, y=..scaled..)) +
   scale_x_log10(label = dollar) +
   coord_trans(x="log10") 
 
-
 multi_plot(list(p1, p2))
 ```
-
-5. There is no clear relationship between **area**, **vehicle value**, **vehicle age** or **gender** and the submission of a claim. However, these features will still be considered for the model.
+5. There is no clear relationship between **area**, **vehicle value**, **vehicle age** or **gender** and the liklihood of submitting a claim. However, these features will still be considered for the model.
 
 # Model Selection & Description 
 
 Logistic regression was selected for this project because it is the most widely used and approved method for predicting probabilities or rates. 
 
-Logistic regression can directly predict the probability that an instance belongs to a specific category (in this case, the probability that a vehicle will submit an insurance claim in the first year) based on the input features provided (age, gender, exposure etc.). 
+Logistic regression can predict the probability that an instance belongs to a specific category (in this case, the probability that a vehicle will submit an insurance claim in the first year) based on the input features provided (**age**, **gender**, **exposure**, etc.). 
 
 The coefficients of a logistic regression model can also be treated as advice when selecting which features to include in the model and also in determining which features have the largest impact on the output. 
 
@@ -194,20 +183,19 @@ The best performing and most accurate model is a logistic regression model which
 
 ## Threshold Selection and Performance
 
-The model was trained using 80% (training) of the available data, the remaining 20% (test data) was used to access the model's accuracy. To evaluate the overall quality of the model 100 iterations of this split were performed.  
+The model was trained using 80% of the available data. The remaining 20% was used to assess the model's accuracy. To evaluate the overall quality of the model, 100 iterations of this split were performed.  
 
-In order to use the model as a classifier we must first select a probability threshold based on the model's predictions for the test data. The goal is to balance the precision of the classifier (what fraction of the predicted positives actual submit a claim) and its recall (what portion of the policies that submit claims did the model identify). Since we are predicting a rare event (only `r paste0(formatC(as.numeric(sum(car$clm == 1) / nrow(car) * 100), format="f", digits=2),'%')` of policies submit a claim) the two distributions aren’t well separated. 
+In order to use the model as a classifier, we must first select a probability threshold based on the model's predictions for the test data. The goal is to balance the precision of the classifier (what percentage of the predicted positives actually submit a claim) and its recall (what percentage of policies that actually submit a claim did the model identify). Since we are predicting a rare event (only `r paste0(formatC(as.numeric(sum(car$clm == 1) / nrow(car) * 100), format="f", digits=2),'%')` of policies submit a claim), the two distributions aren’t well separated. 
 
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+```{r, fig.width = 6.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(testCar, aes(x=pred, y=..scaled..,color=clm, linetype=clm)) +
   geom_density() + 
   labs(title='Probability Density by Claim Submission',x='Probability', y='Density', color='Claim Submitted',  linetype='Claim Submitted') +
   theme(plot.title = element_text(hjust = 0.5))
 ```
-
 This indicates that we are unable to select a threshold that achieves both high recall and good precision simultaneously. However, we can build a classifier that identifies policies with a higher-than-average rate of claims compared to the population. The ratio of the classifier's precision to the average rate of positives in the population is called the enrichment rate.
 
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+```{r, fig.width = 5.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
 ## enrichment rate - ratio of classifier precision to the average rate of positives (how much better than average) 
 ## precision over clm percent vs threshold  
 p1 <- ggplot(rocFrame, aes(x=threshold)) +
@@ -242,54 +230,11 @@ confPrec2 <- confMat2[2,2]/sum(confMat2[2,])
 confRecall2 <- confMat2[2,2]/sum(confMat2[,2])
 confEnrichment2 <- confPrec2/mean(as.numeric(testCar$clm))
 ```
+Selecting a threshold of 0.15 results in a precision of `r paste0(formatC(as.numeric(confPrec2 * 100), format="f", digits=2),'%')` which is more than double the rate of positives in the population. This results in an enrichment rate of `r formatC(as.numeric(confEnrichment2), format="f", digits=2)`. However the recall at this threshold is only `r paste0(formatC(as.numeric(confRecall2 * 100), format="f", digits=2),'%')`. We are only able to identify a small portion of the policies that actually submit a claim. 
 
-Selecting a threshold of 0.15 results in a precision of `r paste0(formatC(as.numeric(confPrec2 * 100), format="f", digits=2),'%')` which is more than double the rate of positives in the population, resulting in an enrichment rate of `r formatC(as.numeric(confEnrichment2), format="f", digits=2)`. However the recall at this threshold is only `r paste0(formatC(as.numeric(confRecall2 * 100), format="f", digits=2),'%')`. We are only able to identify a small portion of the policies that actually submit a claim. 
-
-If instead we select a threshold of 0.10, this results in a precision of `r paste0(formatC(as.numeric(confPrec1 * 100), format="f", digits=2),'%')` which is still an impresive  `r formatC(as.numeric(confEnrichment1), format="f", digits=2)` enrichment rate and the recall is `r paste0(formatC(as.numeric(confRecall1 * 100), format="f", digits=2),'%')`. We are able to identify a much larger portion of the policies which will submit a claim for a small decrease in the model's precison. 
-
+If instead we select a threshold of 0.10, this results in a precision of `r paste0(formatC(as.numeric(confPrec1 * 100), format="f", digits=2),'%')` and a `r formatC(as.numeric(confEnrichment1), format="f", digits=2)` enrichment rate. The recall is `r paste0(formatC(as.numeric(confRecall1 * 100), format="f", digits=2),'%')`. We are able to identify a much larger portion of the policies which will submit a claim for a small decrease in the model's precison. 
 
 ## Model Validation and Selection of Inputs
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-## computing deviance
-loglikelihood <- function(y, py) {
-  sum(y * log(py) + (1-y)*log(1 - py))
-}
-
-## null deviance 
-trainNullDev = model$null.deviance
-
-## model deviance 
-trainResidualDev = model$deviance
-
-##clm percent in testCar
-clmTest = as.numeric(testCar$clm)
-clmRateTest <- mean(as.numeric(testCar$clm))
-
-##testCar null deviance
-testNullDev <- -2*loglikelihood(clmTest, clmRateTest)
-
-##testCar residual deviance
-testResidualDev <- -2*loglikelihood(clmTest, testCar$pred)
-
-## chi-squared test 
-
-degFreedomNull <- dim(trainCar)[[1]] - 1
-degFreedomModel <- dim(trainCar)[[1]] -length(model$coefficients)
-
-devDiff <- trainNullDev - trainResidualDev
-degFreeDiff <- degFreedomNull - degFreedomModel
-pVal <- pchisq(devDiff, degFreeDiff, lower.tail=F)
-```
-
-The policy characteristics were selected based on the models coefficent values and their significance. The significance was evaluated using the chi-squared test on the deviance between the logistic regression model and the NULL model and the goodness of fit was validated via the pseudo r-squared. The age, vehicle value, vehicle body and exposure all improved on the model's quality. 
-
-### Chi-squared Test On The Deviance
-
-The chi-squared test informs us if the reduction in the deviance from the model is statistically significant or if it could have just been observed by chance. The p-value for this model is `r pVal`. Since the value is very small it indicates the reduction in the deviance is was not observed by chance. 
-
-### Pseudo R-squared
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 set.seed(42)
 
@@ -298,15 +243,30 @@ loglikelihood <- function(y, py) {
   sum(y * log(py) + (1-y)*log(1 - py))
 }
 
+## horizontal plot 
+hor_plot <- function(plist) {
+  n <- length(plist)
+  grid.newpage()
+  pushViewport(viewport(layout=grid.layout(1,n)))
+  vplayout=function(x,y) {viewport(layout.pos.col=x, layout.pos.row=y)} 
+  for(i in 1:n) {
+    print(plist[[i]], vp=vplayout(i,1))
+  }
+}
+
+## convert clm to Logical
+car$clm <- car$clm == 1
+
 ## generate 10 80/20 splits for the data & pseudo r-squard vector
 
 index <- replicate(n = 100,expr = {sample(67803,54242)})
 testPr2 = vector()
+chiPval = vector()
+allAic = vector()
 
 for (rep in 1:100){ 
 trainCar = car[index[,rep],]
 testCar = car[-index[,rep],]
-
 
 ## build model formula
 y <- "clm"
@@ -319,12 +279,19 @@ fmla <- paste(y, paste(x, collapse="+"), sep="~")
 ## build logistic regression model
 model <- glm(fmla, data=trainCar, family=binomial(link="logit"))
 
-## predict clm for testCar datasets 
+## predict clm for testCar and trainCar datasets 
 testCar$pred <- predict(model, newdata=testCar, type="response")
+trainCar$pred <- predict(model, newdata=trainCar, type="response")
 
 ##clm percent in testCar
 clmTest = as.numeric(testCar$clm)
 clmRateTest <- mean(as.numeric(testCar$clm))
+
+## null deviance 
+trainNullDev = model$null.deviance
+
+## model deviance 
+trainResidualDev = model$deviance
 
 ##testCar null deviance
 testNullDev <- -2*loglikelihood(clmTest, clmRateTest)
@@ -332,32 +299,67 @@ testNullDev <- -2*loglikelihood(clmTest, clmRateTest)
 ##testCar residual deviance
 testResidualDev <- -2*loglikelihood(clmTest, testCar$pred)
 
-## Calculating the pseudo R-squared
+## calculate desgrees of freedom
+degFreedomNull <- dim(trainCar)[[1]] - 1
+degFreedomModel <- dim(trainCar)[[1]] -length(model$coefficients)
+
+devDiff <- trainNullDev - trainResidualDev
+degFreeDiff <- degFreedomNull - degFreedomModel
+
+## chi squared test 
+
+pVal = pchisq(devDiff, degFreeDiff, lower.tail=F)
+chiPval = c(chiPval,pVal)
+
+## calc the pseudo R-squared
 
 pr2 <- 1-(testResidualDev/testNullDev)
 
 testPr2 = c(testPr2,pr2)
+
+## calc aic
+
+aic = 2*(length(model$coefficients) - loglikelihood(as.numeric(trainCar$clm), trainCar$pred))
+allAic = c(allAic,aic)
 }
 ```
+The policy characteristics were selected based on the model's coefficent values and their significance. The significance was evaluated using the chi-squared test on the deviance between the logistic regression model and the NULL model. The goodness of fit was validated via the pseudo r-squared. The **age**, **vehicle value**, **vehicle body** and **exposure** all improved on the model's quality. 
 
-The calculate the pseudo r-squared the 80/20 train and test split was performed 100 times, and the pseudo r-squard was recorded. The average pseudo r-squared over the 100 iterations was `r paste0(formatC(as.numeric(mean(testPr2) * 100), format="f", digits=2),'%')` implying the model can only explain about 3-5% of the deviance. This indicates that although it is a legitimate model we may not have access to all the information required to accurately predict the probability of an insurance policy holder submitting a claim. 
-```{r, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
-qplot(testPr2, geom="histogram", bins = 10, fill='indianred') + 
-  labs(title='pseudo R-squared for 100 models',x='pseudo R-squared', y='Number of Occurances') +
+The 80/20 train and test split was performed 100 times to calculate the p-value from the chi-squared test, the pseudo r-squared and the AIC.
+
+### Chi-squared Test On The Deviance
+
+The chi-squared test informs us if the reduction in the deviance from the model is statistically significant or if it could have been observed by chance. The average p-value for the 100 models is `r formatC(as.numeric(mean(chiPval) * 100), format='e')`. Since this value is very small, it indicates the reduction in the deviance was not observed by chance and we therefore have a valid model. 
+
+### Pseudo R-squared & Akaike Informaion Criterion
+
+The average pseudo r-squared over the 100 iterations was `r paste0(formatC(as.numeric(mean(testPr2) * 100), format="f", digits=2),'%')` implying the model can only explain about 3-4.5% of the deviance. This indicates that although it is a legitimate model, we may not have access to all the information required to accurately predict the probability of an insurance policy holder submitting a claim. The average AIC for the 100 models is `r formatC(as.numeric(mean(allAic)), format="fg")`.
+```{r, fig.width = 6.5, fig.height = 3, fig.align='center',out.extra='angle=90', echo=FALSE, message=FALSE, warning=FALSE}
+p1 = qplot(testPr2, geom="histogram", bins = 10, fill='indianred') + 
+  labs(x='Pseudo R-squared', y='Number of Occurances') +
   scale_x_continuous(labels = percent) + 
-  theme(plot.title = element_text(hjust = 0.5)) + 
   guides(fill=FALSE)
+
+p2 = qplot(allAic, geom="histogram", bins = 10, fill='indianred') + 
+  labs(x='Akaike Information Criterion', y='Number of Occurances') +
+  scale_x_continuous(labels = comma) +
+  theme(plot.title = element_text(hjust = +7.5)) + 
+  guides(fill=FALSE)
+
+hor_plot(list(p1,p2))
 ```
 
 ### Model Summary & Coefficients 
 
-As expected based on the data exploration, the vehicle value, exposure, age category and several vehicle body types all have statistically significant coefficents indicating they can be trusted and are reliable. The vehicle value and exposure both have positive coefficients meaning higher values for these features indicates a higher probability a claim will be submitted. The age category has a negative coefficient implying that older policy holders have a lower likelihood of submitting a claim.
+The **vehicle value**, **exposure**, **age category** and several **vehicle body types** have statistically significant coefficents indicating they can be trusted and are reliable. The **vehicle value** and **exposure** both have positive coefficients. This means that higher values for these features indicate a higher probability that a claim will be submitted. The **age category** has a negative coefficient implying that older policy holders have a lower likelihood of submitting a claim.
 
-As mentioned previously the AIC in combination with the coefficients and the pseudo r-squared were used to decide which features to include in the model. Including the gender, area and vehicle age only increased the pseudo r-squard slight but also increased the AIC. Since all the possible models were trained with the same training set, the model with the lowest AIC is considered the best fit. The summary of the different model results can be seen below.
-
-![Feature Selection](feature_selection.png)
-
+As mentioned previously, the AIC, the coefficients and the pseudo r-squared were used to decide which features to include in the model. Including the **gender**, **area** and **vehicle age** only increased the pseudo r-squared slightly but also increased the AIC. Since all the possible models were trained with the same training set, the model with the lowest AIC is considered the best fit. The summary of the different model results can be seen below.
+```{r fig.width=7, fig.height=2.75,echo=FALSE}
+img <- readPNG("feature_selection.png")
+ grid.raster(img)
+```
 
 # Assumptions required for results to be predictive in 2006 
-1. The exposure must be available before the insurance policy is taken out. It can therefore be used as a predictor at the time of purchased.  
-2. The [dataCar](https://www.rdocumentation.org/packages/insuranceData/versions/1.0/topics/dataCar) dataset must only indicate a vehicle has submitted a claim if the claim occurs in the first year. The dataset includes data from 2004 & 2005. If a policy was taken out in 2004 and was renewed in 2005, the 2005 renewal and any claim that happened after the renewal date should not be included. 
+
+1. The **exposure** must be available before the insurance policy is taken out. It can therefore be used as a predictor at the time of purchase.  
+2. The [dataCar](https://www.rdocumentation.org/packages/insuranceData/versions/1.0/topics/dataCar) dataset must only indicate a vehicle has submitted a claim if the claim occurs in the first year. The dataset includes data from 2004 and 2005. If a policy was taken out in 2004 and was renewed in 2005, the 2005 renewal and any claim that happened after the renewal date should not be included. 
